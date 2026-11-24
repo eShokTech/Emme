@@ -30,6 +30,6 @@ kotlin {
 
 dependencies {
     // On-device LLM runtime. No cloud API or per-request billing.
-    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.1")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }
