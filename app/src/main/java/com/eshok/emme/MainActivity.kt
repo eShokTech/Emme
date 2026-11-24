@@ -196,7 +196,11 @@ class MainActivity : Activity() {
                             "o hacer acciones eléctricas peligrosas. Si faltan datos, pregunta por modelo exacto, síntomas y pruebas realizadas."
                         ),
                         initialMessages = seed,
-                        samplerConfig = SamplerConfig(topK = 20, topP = 0.85, temperature = 0.65)
+                        samplerConfig = SamplerConfig(topK = 20, topP = 0.85, temperature = 0.65),
+                        // Qwen3 defaults to reasoning mode. Disable it so the user-facing
+                        // answer is emitted directly instead of spending the turn in "thought".
+                        thinkingConfig = ThinkingConfig(enableThinking = false, thinkingTokenBudget = 0),
+                        maxOutputToken = 512
                     )
                 )
                 ready = true
@@ -251,7 +255,10 @@ class MainActivity : Activity() {
             try {
                 val active = conversation ?: throw Exception("Conversación no inicializada")
                 active.sendMessageAsync(prompt).collect { chunk ->
-                    response.append(chunk.toString())
+                    // LiteRT-LM streams Message objects. Their text lives in contents;
+                    // channels may carry non-user-facing reasoning separately.
+                    val visibleText = chunk.contents.toString()
+                    if (visibleText.isNotEmpty()) response.append(visibleText)
                     val snapshot = response.toString()
                     handler.post {
                         responseView?.text = snapshot
@@ -259,10 +266,12 @@ class MainActivity : Activity() {
                     }
                 }
                 val answer = response.toString().trim()
-                history.put(JSONObject().put("text",answer).put("user",false))
+                val finalAnswer = if (answer.isNotBlank()) answer else
+                    "El modelo terminó sin emitir texto visible. La generación llegó al final, pero no produjo una respuesta. Revisa el modelo descargado e inténtalo otra vez."
+                history.put(JSONObject().put("text",finalAnswer).put("user",false))
                 saveHistory()
                 handler.post {
-                    if (answer.isBlank()) responseView?.text = "El modelo terminó sin devolver texto. Intenta reformular."
+                    responseView?.text = finalAnswer
                     busy = false
                     input.isEnabled = true
                     sendButton.isEnabled = true
